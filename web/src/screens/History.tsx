@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { Checklist } from '../components';
 import { formatLong, formatWeek, isoDate, today, weekStart } from '../lib/dates';
+import { habitsIn } from '../lib/habits';
 import { makeLookup, periodScore } from '../lib/stats';
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -50,7 +51,7 @@ export function History() {
           {weeks.map((week) => {
             const firstDay = week.find(Boolean)!;
             const monday = weekStart(firstDay);
-            const wScore = periodScore(weekly, data.weekly.habits, monday);
+            const wScore = periodScore(weekly, habitsIn(data.weekly, 'weekly', monday), monday);
             return [
               ...week.map((date, i) => {
                 if (!date) return <span key={`${monday}-${i}`} />;
@@ -60,7 +61,7 @@ export function History() {
                     key={date}
                     disabled={future}
                     className={`day${date === selected ? ' selected' : ''}${date === t ? ' is-today' : ''}`}
-                    style={{ '--score': periodScore(daily, data.daily.habits, date) } as React.CSSProperties}
+                    style={{ '--score': periodScore(daily, habitsIn(data.daily, 'daily', date), date) } as React.CSSProperties}
                     onClick={() => setSelected(date)}
                   >
                     {Number(date.slice(8))}
@@ -81,10 +82,10 @@ export function History() {
       </section>
 
       <h2 className="section-title">{formatLong(selected)}</h2>
-      <Checklist kind="daily" date={selected} />
+      <Checklist kind="daily" date={selected} habits={habitsIn(data.daily, 'daily', selected)} emptyText="No daily habits on this day." />
 
       <h2 className="section-title">Week of {formatWeek(selectedWeek)}</h2>
-      <Checklist kind="weekly" date={selected} />
+      <Checklist kind="weekly" date={selected} habits={habitsIn(data.weekly, 'weekly', selectedWeek)} emptyText="No weekly habits in this week." />
     </>
   );
 }

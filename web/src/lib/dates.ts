@@ -16,6 +16,11 @@ export function addDays(s: string, n: number): string {
   return isoDate(d);
 }
 
+/** Whole days from a to b (negative if b is earlier). */
+export function daysBetween(a: string, b: string): number {
+  return Math.round((parseIso(b).getTime() - parseIso(a).getTime()) / 86_400_000);
+}
+
 export function today(): string {
   return isoDate(new Date());
 }

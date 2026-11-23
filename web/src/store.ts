@@ -13,7 +13,8 @@ export interface State {
   lastSync: number | null;
 }
 
-const CACHE_KEY = 'habits.cache.v2'; // v2: daily + weekly tables
+const CACHE_KEY = 'habits.cache.v3'; // v3: habit meta + pills
+const OLD_CACHE_KEY = 'habits.cache.v2';
 
 interface Cache {
   server: SheetData | null;
@@ -25,6 +26,12 @@ function readCache(): Cache {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (raw) return JSON.parse(raw) as Cache;
+    // Older data has a different shape; keep only the queued changes so none are lost.
+    const old = localStorage.getItem(OLD_CACHE_KEY);
+    if (old) {
+      localStorage.removeItem(OLD_CACHE_KEY);
+      return { server: null, pending: (JSON.parse(old) as Cache).pending ?? [], lastSync: null };
+    }
   } catch {
     /* ignore */
   }

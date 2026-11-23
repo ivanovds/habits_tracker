@@ -10,7 +10,8 @@ import {
   type DoneLookup,
 } from '../lib/stats';
 import { ProgressRing } from '../components';
-import type { Kind, Row } from '../types';
+import { currentHabits, habitsIn, periodsSince } from '../lib/habits';
+import type { HabitMeta, Kind, Row } from '../types';
 
 const WEEKS = 15;
 const CELL = 14;
@@ -65,11 +66,13 @@ function HeatCell({ x, y, date, v }: { x: number; y: number; date: string; v: nu
   );
 }
 
-function HabitCard({ kind, habit, rows, done }: { kind: Kind; habit: string; rows: Row[]; done: DoneLookup }) {
+function HabitCard({ kind, habit, meta, rows, done }: { kind: Kind; habit: string; meta?: HabitMeta; rows: Row[]; done: DoneLookup }) {
   const step = STEP[kind];
   const current = kind === 'weekly' ? weekStart(today()) : today();
   const unit = kind === 'weekly' ? 'weeks' : 'days';
-  const [shortN, longN] = kind === 'weekly' ? [4, 12] : [7, 30];
+  // A habit created recently is only rated over the periods it has existed.
+  const avail = periodsSince(kind, meta?.created, current);
+  const [shortN, longN] = (kind === 'weekly' ? [4, 12] : [7, 30]).map((n) => Math.max(1, Math.min(n, avail)));
   return (
     <section className="card habit-card">
       <div className="habit-card-head">
@@ -100,8 +103,12 @@ export function Stats() {
   const t = today();
   const daily = makeLookup(data.daily.rows);
   const weekly = makeLookup(data.weekly.rows);
-  const avg30 =
-    Array.from({ length: 30 }, (_, i) => periodScore(daily, data.daily.habits, addDays(t, -i))).reduce((a, b) => a + b, 0) / 30;
+  const dailyHabits = currentHabits(data.daily);
+  const weeklyHabits = currentHabits(data.weekly);
+  const dayScore = (d: string) => periodScore(daily, habitsIn(data.daily, 'daily', d), d);
+  const weekScore = (m: string) => periodScore(weekly, habitsIn(data.weekly, 'weekly', m), m);
+  const last30 = Array.from({ length: 30 }, (_, i) => addDays(t, -i)).filter((d) => habitsIn(data.daily, 'daily', d).length);
+  const avg30 = last30.length ? last30.reduce((a, d) => a + dayScore(d), 0) / last30.length : 0;
 
   return (
     <>
@@ -110,25 +117,25 @@ export function Stats() {
       </header>
 
       <h2 className="section-title">Daily habits</h2>
-      {!data.daily.habits.length ? (
+      {!dailyHabits.length ? (
         <p className="empty small">No daily habits yet.</p>
       ) : (
         <>
           <section className="card">
             <div className="habit-card-head">
               <h3>All daily habits</h3>
-              <span className="muted">{Math.round(avg30 * 100)}% avg · 30 days</span>
+              <span className="muted">{Math.round(avg30 * 100)}% avg · {last30.length} days</span>
             </div>
-            <DayHeatmap value={(d) => periodScore(daily, data.daily.habits, d)} />
+            <DayHeatmap value={dayScore} />
           </section>
-          {data.daily.habits.map((h) => (
-            <HabitCard key={h} kind="daily" habit={h} rows={data.daily.rows} done={daily} />
+          {dailyHabits.map((h) => (
+            <HabitCard key={h} kind="daily" habit={h} meta={data.daily.meta[h]} rows={data.daily.rows} done={daily} />
           ))}
         </>
       )}
 
       <h2 className="section-title">Weekly habits</h2>
-      {!data.weekly.habits.length ? (
+      {!weeklyHabits.length ? (
         <p className="empty small">No weekly habits yet.</p>
       ) : (
         <>
@@ -137,10 +144,10 @@ export function Stats() {
               <h3>All weekly habits</h3>
               <span className="muted">last {WEEKS} weeks</span>
             </div>
-            <WeekStrip value={(m) => periodScore(weekly, data.weekly.habits, m)} />
+            <WeekStrip value={weekScore} />
           </section>
-          {data.weekly.habits.map((h) => (
-            <HabitCard key={h} kind="weekly" habit={h} rows={data.weekly.rows} done={weekly} />
+          {weeklyHabits.map((h) => (
+            <HabitCard key={h} kind="weekly" habit={h} meta={data.weekly.meta[h]} rows={data.weekly.rows} done={weekly} />
           ))}
         </>
       )}

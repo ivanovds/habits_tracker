@@ -5,6 +5,7 @@ import type { SheetData } from '../types';
 const base: SheetData = {
   daily: {
     habits: ['run', 'read'],
+    meta: {},
     rows: [
       { date: '2026-11-18', values: { run: true, read: false } },
       { date: '2026-11-20', values: { run: false, read: false } },
@@ -12,8 +13,10 @@ const base: SheetData = {
   },
   weekly: {
     habits: ['call'],
+    meta: {},
     rows: [{ date: '2026-11-16', values: { call: false } }],
   },
+  pills: { items: [], log: [] },
 };
 
 describe('applyMutation', () => {
@@ -52,5 +55,55 @@ describe('applyMutation', () => {
   it('ignores duplicate habit names', () => {
     expect(applyMutation(base, { action: 'addHabit', kind: 'daily', name: 'run' })).toBe(base);
     expect(applyMutation(base, { action: 'renameHabit', kind: 'daily', oldName: 'run', newName: 'read' })).toBe(base);
+  });
+  it('stores the creation date and carries meta through rename and delete', () => {
+    let r = applyMutation(base, { action: 'addHabit', kind: 'daily', name: 'gym', created: '2026-11-23' });
+    expect(r.daily.meta).toEqual({ gym: { created: '2026-11-23' } });
+    r = applyMutation(r, { action: 'renameHabit', kind: 'daily', oldName: 'gym', newName: 'lift' });
+    expect(r.daily.meta).toEqual({ lift: { created: '2026-11-23' } });
+    r = applyMutation(r, { action: 'deleteHabit', kind: 'daily', name: 'lift' });
+    expect(r.daily.meta).toEqual({});
+  });
+  it('archives and restores a habit without touching its history', () => {
+    let r = applyMutation(base, { action: 'archiveHabit', kind: 'daily', name: 'run', date: '2026-11-23' });
+    expect(r.daily.meta.run).toEqual({ archived: '2026-11-23' });
+    expect(r.daily.rows).toBe(base.daily.rows);
+    expect(r.daily.habits).toEqual(['run', 'read']);
+    r = applyMutation(r, { action: 'restoreHabit', kind: 'daily', name: 'run' });
+    expect(r.daily.meta).toEqual({});
+    expect(applyMutation(base, { action: 'restoreHabit', kind: 'daily', name: 'run' })).toBe(base);
+  });
+});
+
+describe('applyMutation: pills', () => {
+  const pill = { id: 'p1', name: ' Vitamin D, 1 tablet ', created: '2026-11-20' };
+  it('adds, edits and deletes medications, keeping the log', () => {
+    let r = applyMutation(base, { action: 'addPill', pill });
+    expect(r.pills.items).toEqual([{ ...pill, name: 'Vitamin D, 1 tablet' }]);
+    expect(applyMutation(r, { action: 'addPill', pill })).toBe(r);
+    r = applyMutation(r, { action: 'setIntake', date: '2026-11-23', pillId: 'p1', name: 'Vitamin D, 1 tablet', value: true });
+    r = applyMutation(r, { action: 'updatePill', pill: { id: 'p1', name: 'Vitamin D, 2 tablets' } });
+    expect(r.pills.items[0]).toEqual({ id: 'p1', name: 'Vitamin D, 2 tablets', created: '2026-11-20' });
+    r = applyMutation(r, { action: 'deletePill', id: 'p1' });
+    expect(r.pills.items).toEqual([]);
+    expect(r.pills.log).toEqual([{ date: '2026-11-23', pillId: 'p1', name: 'Vitamin D, 1 tablet' }]);
+  });
+  it('reorders medications', () => {
+    let r = applyMutation(base, { action: 'addPill', pill: { id: 'a', name: 'A' } });
+    r = applyMutation(r, { action: 'addPill', pill: { id: 'b', name: 'B' } });
+    r = applyMutation(r, { action: 'addPill', pill: { id: 'c', name: 'C' } });
+    r = applyMutation(r, { action: 'movePill', id: 'c', toIndex: 0 });
+    expect(r.pills.items.map((i) => i.id)).toEqual(['c', 'a', 'b']);
+    r = applyMutation(r, { action: 'movePill', id: 'c', toIndex: 2 });
+    expect(r.pills.items.map((i) => i.id)).toEqual(['a', 'b', 'c']);
+    expect(applyMutation(r, { action: 'movePill', id: 'a', toIndex: 5 })).toBe(r);
+  });
+  it('ticks and unticks a day', () => {
+    const m = { action: 'setIntake', date: '2026-11-23', pillId: 'p1', name: 'Vitamin D' } as const;
+    let r = applyMutation(base, { ...m, value: true });
+    expect(r.pills.log).toEqual([{ date: '2026-11-23', pillId: 'p1', name: 'Vitamin D' }]);
+    expect(applyMutation(r, { ...m, value: true })).toBe(r);
+    r = applyMutation(r, { ...m, value: false });
+    expect(r.pills.log).toEqual([]);
   });
 });

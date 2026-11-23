@@ -4,15 +4,15 @@ import { today } from './lib/dates';
 import type { Kind } from './types';
 
 /**
- * Checkboxes for every habit of one kind, for the period containing `date`
+ * Checkboxes for the given habits of one kind, for the period containing `date`
  * (that day for daily habits, that week for weekly ones).
  */
-export function Checklist({ kind, date }: { kind: Kind; date: string }) {
+export function Checklist({ kind, date, habits, emptyText }: { kind: Kind; date: string; habits: string[]; emptyText?: string }) {
   const { data } = useStore();
   if (!data) return null;
   const table = data[kind];
-  if (!table.habits.length) {
-    return <p className="empty small">No {kind} habits yet. Add some in the Habits tab.</p>;
+  if (!habits.length) {
+    return <p className="empty small">{emptyText ?? `No ${kind} habits yet. Add some in Other → Habits.`}</p>;
   }
   const period = periodOf(kind, date);
   const row = table.rows.find((r) => r.date === period);
@@ -22,7 +22,7 @@ export function Checklist({ kind, date }: { kind: Kind; date: string }) {
 
   return (
     <ul className="list checklist">
-      {table.habits.map((h) => {
+      {habits.map((h) => {
         const checked = !!row?.values[h];
         const streak = currentStreak(done, h, current, STEP[kind]);
         return (

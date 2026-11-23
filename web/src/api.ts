@@ -50,10 +50,13 @@ async function call(s: ApiSettings, body: Record<string, unknown>): Promise<Shee
     throw new ApiError('Unexpected response — check the Web App URL ends with /exec and access is "Anyone".');
   }
   if (!json.ok || !json.data) throw new ApiError(json.error || 'Unknown server error');
-  if (!json.data.daily || !json.data.weekly) {
+  const d = json.data;
+  if (!d.daily || !d.weekly || !d.pills) {
     throw new ApiError('Unexpected response: the deployed Apps Script is outdated. Paste the new Code.gs and deploy a new version.');
   }
-  return json.data;
+  d.daily.meta ??= {};
+  d.weekly.meta ??= {};
+  return d;
 }
 
 export function fetchData(s: ApiSettings): Promise<SheetData> {
