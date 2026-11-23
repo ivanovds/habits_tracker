@@ -10,7 +10,7 @@ A PWA (installable web app) that shows your Google Sheet as an iPhone app:
 - Works offline: changes are queued and synced when you're back online
 
 ```
-iPhone (PWA on GitHub Pages) ──HTTPS──▶ Apps Script Web App ──▶ Google Sheet
+iPhone (PWA on GitHub Pages) ── HTTPS ──▶ Apps Script Web App ──▶ Google Sheet
 ```
 
 ## 1. Prepare the sheet
